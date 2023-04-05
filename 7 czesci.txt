@@ -1,0 +1,421 @@
+ 1 battle_system.py
+from characters import Player, Enemy
+from items import HealingItem, ManaRestoreItem, BuffItem, DebuffItem
+
+class BattleSystem:
+    def __init__(self, player, enemy):
+        self.player = player
+        self.enemy = enemy
+
+    def handle_action(self, action_index, activity_log):
+        if action_index == 0:  # Attack
+            damage_dealt = self.player.attack_target(self.enemy)
+            activity_log.append(f"{self.player.name} attacked {self.enemy.name} for {damage_dealt} damage")
+
+            if self.enemy.is_dead():
+                self.enemy.on_death(self.player)
+                return f"{self.enemy.name} has been defeated!"
+
+            enemy_action = self.enemy.enemy_turn(self.player)
+            activity_log.append(enemy_action)
+            return ""
+
+        elif action_index == 1:  # Magic
+            # Implement magic logic
+            pass
+
+        elif action_index == 2:  # Defend
+            # Implement defend logic
+            pass
+
+        elif action_index == 3:  # Item
+            # Implement item usage logic
+            pass
+
+        elif action_index == 4:  # Flee
+            # Implement flee logic
+            pass
+
+        else:
+            return "Invalid action"
+2 characters.py
+import random
+
+class Character:
+    def __init__(self, name, hp, max_hp, mp, max_mp, attack, defense, magic_attack, magic_defense, speed):
+        self.name = name
+        self.hp = hp
+        self.max_hp = max_hp
+        self.mp = mp
+        self.max_mp = max_mp
+        self.attack = attack
+        self.defense = defense
+        self.magic_attack = magic_attack
+        self.magic_defense = magic_defense
+        self.speed = speed
+
+    def take_damage(self, damage):
+        self.hp -= damage
+        if self.hp < 0:
+            self.hp = 0
+
+    def heal(self, amount):
+        self.hp += amount
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
+
+    def use_mp(self, amount):
+        self.mp -= amount
+        if self.mp < 0:
+            self.mp = 0
+
+    def restore_mp(self, amount):
+        self.mp += amount
+        if self.mp > self.max_mp:
+            self.mp = self.max_mp
+
+    def is_dead(self):
+        return self.hp == 0
+
+    def attack_target(self, target):
+        damage = self.attack - target.defense
+        if damage < 0:
+            damage = 0
+
+        target.take_damage(damage)
+        return damage
+
+    def cast_spell(self, spell, target):
+        if self.mp >= spell.mp_cost:
+            self.use_mp(spell.mp_cost)
+            spell_effect = spell.cast(self, target)
+            return spell_effect
+        else:
+            return "Not enough MP"
+
+    def use_item(self, item):
+        item_effect = item.use(self)
+        return item_effect
+
+
+class Player(Character):
+    def __init__(self, name, hp, max_hp, mp, max_mp, attack, defense, magic_attack, magic_defense, speed, exp=0, level=1):
+        super().__init__(name, hp, max_hp, mp, max_mp, attack, defense, magic_attack, magic_defense, speed)
+        self.exp = exp
+        self.level = level
+
+    def gain_exp(self, amount):
+        self.exp += amount
+        while self.exp >= self.exp_to_next_level():
+            self.level_up()
+
+    def level_up(self):
+        self.level += 1
+        self.max_hp += random.randint(5, 15)
+        self.max_mp += random.randint(2, 8)
+        self.attack += random.randint(1, 5)
+        self.defense += random.randint(1, 5)
+        self.magic_attack += random.randint(1, 5)
+        self.magic_defense += random.randint(1, 5)
+        self.speed += random.randint(1, 5)
+        self.hp = self.max_hp
+        self.mp = self.max_mp
+
+    def exp_to_next_level(self):
+        return 100 * self.level
+
+class Enemy(Character):
+    def __init__(self, name, hp, max_hp, mp, max_mp, attack, defense, magic_attack, magic_defense, speed, exp_reward, enemy_damage):
+        super().__init__(name, hp, max_hp, mp, max_mp, attack, defense, magic_attack, magic_defense, speed)
+        self.exp_reward = exp_reward
+        self.enemy_damage = enemy_damage
+
+    def on_death(self, player):
+        player.gain_exp(self.exp_reward)
+
+    def enemy_turn(self, player):
+        damage_dealt = self.attack_target(player)
+        return f"{self.name} attacked {player.name} for {damage_dealt} damage"
+
+3 home.py :
+import pygame
+from utils import draw_text
+
+
+class Home:
+    def __init__(self, player):
+        self.player = player
+        self.item_box = []
+
+    def add_item_to_box(self, item):
+        self.item_box.append(item)
+
+    def remove_item_from_box(self, item):
+        if item in self.item_box:
+            self.item_box.remove(item)
+
+    def heal_player(self):
+        self.player.heal(self.player.max_hp)
+        self.player.restore_mp(self.player.max_mp)
+
+    def save_game(self):
+        pass  # Tutaj można zaimplementować zapisywanie stanu gry.
+
+    def draw_home_ui(self, screen, menu_selected_option):
+        screen.fill((0, 0, 0))
+
+        draw_text(screen, self.player.name, 20, 20, 30)
+        draw_text(screen, "Home", 400, 20, 30)
+
+        draw_home_menu(screen, menu_selected_option)
+
+        draw_item_box(screen, self.item_box, 20, 100)
+
+
+def draw_home_menu(screen, selected_option):
+    menu_options = ["Rest", "Item Box", "Save Game", "Leave Home"]
+    x = 540
+    y = 500
+
+    for index, option in enumerate(menu_options):
+        if index == selected_option:
+            color = (255, 255, 0)
+        else:
+            color = (255, 255, 255)
+
+        draw_text(screen, option, x, y, 24, color)
+        y += 24
+
+
+def draw_item_box(screen, item_box, x, y):
+    draw_text(screen, "Item Box:", x, y, 30)
+    y += 40
+
+    for item in item_box:
+        draw_text(screen, item.name, x, y, 24)
+        y += 24
+ 4 items.py :
+class Item:
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
+
+    def use(self, character):
+        pass
+
+
+class HealingItem(Item):
+    def __init__(self, name, description, heal_amount):
+        super().__init__(name, description)
+        self.heal_amount = heal_amount
+
+    def use(self, character):
+        character.heal(self.heal_amount)
+        return f"{character.name} used {self.name} and healed for {self.heal_amount} HP"
+
+
+class ManaRestoreItem(Item):
+    def __init__(self, name, description, restore_amount):
+        super().__init__(name, description)
+        self.restore_amount = restore_amount
+
+    def use(self, character):
+        character.restore_mp(self.restore_amount)
+        return f"{character.name} used {self.name} and restored {self.restore_amount} MP"
+
+
+class BuffItem(Item):
+    def __init__(self, name, description, stat, amount, duration):
+        super().__init__(name, description)
+        self.stat = stat
+        self.amount = amount
+        self.duration = duration
+
+    def use(self, character):
+        # Implement buff logic
+        pass
+
+
+class DebuffItem(Item):
+    def __init__(self, name, description, stat, amount, duration):
+        super().__init__(name, description)
+        self.stat = stat
+        self.amount = amount
+        self.duration = duration
+
+    def use(self, character):
+        # Implement debuff logic
+        pass
+ 5 main.py :
+import pygame
+from characters import Player, Enemy
+from battle_system import BattleSystem
+from ui import draw_ui
+from home import Home
+
+def generate_enemy():
+    return Enemy("Goblin", 100, 100, 10, 10, 20, 10, 10, 10, 10, 5, 10)
+
+pygame.init()
+
+game_screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Final Fantasy 5 Inspired Battle System")
+clock = pygame.time.Clock()
+
+player = Player("Knight", 100, 100, 30, 30, 100, 30, 30, 20, 20)
+enemy = generate_enemy()
+
+battle_system = BattleSystem(player, enemy)
+player_home = Home(player)
+
+running = True
+menu_selected_option = 0
+notification_text = ""
+
+activity_log = []
+
+enemies_defeated = 0
+
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                menu_selected_option -= 1
+            elif event.key == pygame.K_DOWN:
+                menu_selected_option += 1
+            elif event.key == pygame.K_RETURN:
+                notification_text = battle_system.handle_action(menu_selected_option, activity_log)
+                if battle_system.enemy.is_dead():
+                    enemies_defeated += 1
+                    if enemies_defeated >= 3:
+                        notification_text = "You have defeated 3 enemies!"
+                        running = False
+                    else:
+                        enemy = generate_enemy()
+                        battle_system.enemy = enemy
+                        notification_text = "A new enemy has appeared!"
+
+                        player_home.visit(player)  # Player visits home after a battle
+
+
+                    class Home:
+                        def __init__(self, player):
+                            self.player = player
+
+                        def visit(self, player):
+                            player.heal()  # code to heal the player
+
+
+                    draw_ui(game_screen, player, enemy, menu_selected_option, notification_text, activity_log)
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+
+6 ui.py :
+import pygame
+from utils import draw_text, draw_health_bar, draw_magic_bar, format_notification_text
+
+
+def draw_ui(game_screen, player, enemy, menu_selected_option, notification_text, activity_log):
+    game_screen.fill((0, 0, 0))
+
+    draw_text(game_screen, player.name, 20, 20, 30)
+    draw_health_bar(game_screen, 20, 60, player)
+    draw_magic_bar(game_screen, 20, 90, player)
+
+    draw_text(game_screen, enemy.name, 600, 20, 30)
+    draw_health_bar(game_screen, 600, 60, enemy)
+
+    draw_action_menu(game_screen, menu_selected_option)
+    draw_activity_log(game_screen, activity_log)
+
+    draw_text(game_screen, notification_text, 10, 440, 24)
+
+
+def draw_action_menu(screen, selected_option):
+    menu_options = ["Attack", "Magic", "Defend", "Item", "Flee"]
+    x = 540
+    y = 500
+
+    for index, option in enumerate(menu_options):
+        if index == selected_option:
+            color = (255, 255, 0)
+        else:
+            color = (255, 255, 255)
+
+        draw_text(screen, option, x, y, 24, color)
+        y += 24
+
+
+def draw_activity_log(screen, activity_log):
+    x = 20
+    y = 500
+    max_lines = 4
+
+    for line in activity_log[-max_lines:]:
+        draw_text(screen, line, x, y, 24)
+        y += 24
+ 7 utils.py :
+import pygame
+
+
+def format_notification_text(text: str, max_width: int, font: pygame.font.Font) -> list:
+    words = text.split(" ")
+    lines = []
+    current_line = ""
+    for word in words:
+        test_line = current_line + word + " "
+        text_width, _ = font.size(test_line)
+        if text_width <= max_width:
+            current_line = test_line
+        else:
+            lines.append(current_line.strip())
+            current_line = word + " "
+    lines.append(current_line.strip())
+    return lines
+
+
+def draw_text(surface, text, x, y, size, color=(255, 255, 255)):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color)
+    surface.blit(text_surface, (x, y))
+
+
+def draw_health_bar(surface, x, y, character):
+    width = 100
+    height = 20
+    colors = {
+        "background": (50, 50, 50),
+        "filled": (255, 0, 0),
+        "outline": (255, 255, 255),
+    }
+    draw_bar(surface, x, y, width, height, character.hp, character.max_hp, colors)
+
+
+def draw_magic_bar(surface, x, y, character):
+    width = 100
+    height = 20
+    colors = {
+        "background": (50, 50, 50),
+        "filled": (0, 0, 255),
+        "outline": (255, 255, 255),
+    }
+    draw_bar(surface, x, y, width, height, character.mp, character.max_mp, colors)
+
+
+def draw_bar(surface, x, y, width, height, current_value, max_value, colors):
+    percentage = current_value / max_value
+    filled_bar_width = int(percentage * width)
+    outline_rect = pygame.Rect(x, y, width, height)
+    filled_rect = pygame.Rect(x, y, filled_bar_width, height)
+    pygame.draw.rect(surface, colors["background"], outline_rect)
+    pygame.draw.rect(surface, colors["filled"], filled_rect)
+    pygame.draw.rect(surface, colors["outline"], outline_rect, 2)
+
+
+
